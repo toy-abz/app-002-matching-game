@@ -12,8 +12,15 @@
     }
     *{box-sizing:border-box}
     html,body{height:100%}
-    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Noto Sans JP",sans-serif;background:radial-gradient(1000px 500px at 80% -10%,#16204a,transparent),var(--bg);color:var(--text);display:grid;place-items:center}
-    .app{width:min(96vw,680px);background:linear-gradient(180deg,rgba(255,255,255,.03),transparent),var(--panel);border:1px solid rgba(255,255,255,.06);border-radius:18px;box-shadow:var(--shadow);padding:18px 18px 24px}
+    body{
+      margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Noto Sans JP",sans-serif;
+      background:radial-gradient(1000px 500px at 80% -10%,#16204a,transparent),var(--bg);
+      color:var(--text);display:grid;place-items:center
+    }
+    .app{
+      width:min(96vw,680px);background:linear-gradient(180deg,rgba(255,255,255,.03),transparent),var(--panel);
+      border:1px solid rgba(255,255,255,.06);border-radius:18px;box-shadow:var(--shadow);padding:18px 18px 24px
+    }
     header{display:flex;justify-content:space-between;align-items:center;gap:12px}
     h1{font-size:18px;margin:0}
     .muted{color:var(--muted);font-size:12px}
@@ -21,15 +28,26 @@
     .btn{border:0;border-radius:12px;padding:10px 14px;font-weight:600;cursor:pointer;background:#0d1330;color:var(--text);border:1px solid #2a3566}
     .btn.primary{background:linear-gradient(180deg,var(--accent),#557aff);color:#071022}
     .stats{display:flex;gap:16px;align-items:center}
-    .grid{display:grid;gap:10px;margin-top:14px}
+    .grid{display:grid;gap:10px;margin-top:14px;perspective:1000px}
     /* レベル別のグリッド */
     .size-4{grid-template-columns:repeat(4,1fr)}
     .size-5{grid-template-columns:repeat(5,1fr)}
 
-    .card{position:relative;aspect-ratio:3/4;border-radius:14px;user-select:none;transform-style:preserve-3d;transition:transform .3s ease;outline:none}
-    .face,.back{position:absolute;inset:0;border-radius:14px;display:grid;place-items:center}
-    .back{background:linear-gradient(180deg,#1a2350,#0d1430);border:1px solid var(--edge)}
-    .face{background:linear-gradient(180deg,#0f1430,#0c112a);border:1px solid #22305e;transform:rotateY(180deg)}
+    .card{
+      position:relative;aspect-ratio:3/4;border-radius:14px;user-select:none;
+      transform-style:preserve-3d;transition:transform .3s ease;outline:none
+    }
+    .face,.back{
+      position:absolute;inset:0;border-radius:14px;display:grid;place-items:center;
+      backface-visibility:hidden;-webkit-backface-visibility:hidden
+    }
+    .back{
+      background:linear-gradient(180deg,#1a2350,#0d1430);border:1px solid var(--edge);transform:rotateY(0)
+    }
+    .back::after{content:'❓';font-size:clamp(28px,6vw,42px);color:#6f7bb0;opacity:.9}
+    .face{
+      background:linear-gradient(180deg,#0f1430,#0c112a);border:1px solid #22305e;transform:rotateY(180deg)
+    }
     .card.flip{transform:rotateY(180deg)}
     .emoji{font-size:clamp(28px,6vw,42px)}
     .tag{display:inline-grid;place-items:center;padding:2px 8px;border-radius:999px;font-size:12px;border:1px solid #2a3566;background:#0f1430;color:var(--muted)}
@@ -187,6 +205,10 @@
     const deck = createDeck();
     deck.forEach((sym, i)=> board.appendChild(cardEl(sym, i)));
     bestEl.textContent = savedBest[bestKey()] ? fmtTime(savedBest[bestKey()]) : '—';
+
+    // すべて裏面からスタート（リスタート/レベル変更時も同様）
+    const cards = board.querySelectorAll('.card');
+    cards.forEach(c => c.classList.remove('flip','done'));
   }
 
   function setLevel(v){
