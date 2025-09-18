@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Day02 — Matching Game</title>
-  <meta name="description" content="シンプルな神経衰弱（マッチング）ゲーム。カードを2枚ずつめくってペアを見つけよう。スマホ対応・スコア保存・GitHub Pages/Vercel対応。" />
+  <title>Day02 — Matching Game (fixed)</title>
+  <meta name="description" content="シンプルな神経衰弱（マッチング）ゲーム。カードは初期状態で裏面（❓）表示。リスタート時も裏面に戻ります。" />
   <style>
     :root{
       --bg:#0b1020; --panel:#121836; --text:#e9ecf1; --muted:#a7b0c3; --accent:#7aa2ff; --ok:#6efacc; --miss:#ff6b6b;
@@ -56,6 +56,10 @@
     footer{margin-top:12px;color:var(--muted);font-size:12px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
     .sr{position:absolute;left:-9999px}
     select, .select{appearance:none;background:#0f1430;color:var(--text);border:1px solid #232b55;border-radius:12px;padding:8px 12px}
+
+    /* 互換性強化：未フリップ時は表面を非表示 */
+    .card:not(.flip) .face{ visibility:hidden; }
+    .card.flip .face{ visibility:visible; }
   </style>
 </head>
 <body>
