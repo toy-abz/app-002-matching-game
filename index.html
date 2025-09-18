@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Day02 — Matching Game</title>
+  <meta name="description" content="シンプルな神経衰弱（マッチング）ゲーム。カードを2枚ずつめくってペアを見つけよう。スマホ対応・スコア保存・GitHub Pages/Vercel対応。" />
+  <style>
+    :root{
+      --bg:#0b1020; --panel:#121836; --text:#e9ecf1; --muted:#a7b0c3; --accent:#7aa2ff; --ok:#6efacc; --miss:#ff6b6b;
+      --card:#0f1430; --edge:#24305f; --shadow:0 10px 24px rgba(0,0,0,.35)
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Noto Sans JP",sans-serif;background:radial-gradient(1000px 500px at 80% -10%,#16204a,transparent),var(--bg);color:var(--text);display:grid;place-items:center}
+    .app{width:min(96vw,680px);background:linear-gradient(180deg,rgba(255,255,255,.03),transparent),var(--panel);border:1px solid rgba(255,255,255,.06);border-radius:18px;box-shadow:var(--shadow);padding:18px 18px 24px}
+    header{display:flex;justify-content:space-between;align-items:center;gap:12px}
+    h1{font-size:18px;margin:0}
+    .muted{color:var(--muted);font-size:12px}
+    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+    .btn{border:0;border-radius:12px;padding:10px 14px;font-weight:600;cursor:pointer;background:#0d1330;color:var(--text);border:1px solid #2a3566}
+    .btn.primary{background:linear-gradient(180deg,var(--accent),#557aff);color:#071022}
+    .stats{display:flex;gap:16px;align-items:center}
+    .grid{display:grid;gap:10px;margin-top:14px}
+    /* レベル別のグリッド */
+    .size-4{grid-template-columns:repeat(4,1fr)}
+    .size-5{grid-template-columns:repeat(5,1fr)}
+
+    .card{position:relative;aspect-ratio:3/4;border-radius:14px;user-select:none;transform-style:preserve-3d;transition:transform .3s ease;outline:none}
+    .face,.back{position:absolute;inset:0;border-radius:14px;display:grid;place-items:center}
+    .back{background:linear-gradient(180deg,#1a2350,#0d1430);border:1px solid var(--edge)}
+    .face{background:linear-gradient(180deg,#0f1430,#0c112a);border:1px solid #22305e;transform:rotateY(180deg)}
+    .card.flip{transform:rotateY(180deg)}
+    .emoji{font-size:clamp(28px,6vw,42px)}
+    .tag{display:inline-grid;place-items:center;padding:2px 8px;border-radius:999px;font-size:12px;border:1px solid #2a3566;background:#0f1430;color:var(--muted)}
+    .good{border-color:rgba(110,250,204,.6);color:#bafbe9}
+    .bad{border-color:rgba(255,107,107,.6);color:#ffb3b3}
+    footer{margin-top:12px;color:var(--muted);font-size:12px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+    .sr{position:absolute;left:-9999px}
+    select, .select{appearance:none;background:#0f1430;color:var(--text);border:1px solid #232b55;border-radius:12px;padding:8px 12px}
+  </style>
+</head>
+<body>
+  <main class="app" role="application" aria-labelledby="title">
+    <header>
+      <div>
+        <h1 id="title">Matching Game</h1>
+        <div class="muted">Day02 — カードをめくって同じ絵柄をそろえよう（Spaceで再スタート）</div>
+      </div>
+      <div class="row">
+        <label class="row" style="gap:6px">
+          レベル
+          <select id="level" aria-label="レベル">
+            <option value="4">4×4（やさしい）</option>
+            <option value="5">5×4（ふつう）</option>
+          </select>
+        </label>
+        <button id="restart" class="btn primary">リスタート</button>
+      </div>
+    </header>
+
+    <section class="row stats" aria-label="ステータス">
+      <span class="tag"><strong id="moves">0</strong>&nbsp;手</span>
+      <span class="tag"><strong id="time">0:00</strong></span>
+      <span class="tag good">自己ベスト <span id="best">—</span></span>
+      <span id="feedback" class="tag" aria-live="polite"></span>
+    </section>
+
+    <section id="board" class="grid size-4" aria-live="polite" aria-atomic="true"></section>
+
+    <footer>
+      <div>アクセシビリティ：カードはTabで選択、Enter/Spaceでめくれます</div>
+      <div>進捗はローカル保存（ベストタイム）</div>
+    </footer>
+
+    <div id="a11y" class="sr" aria-live="assertive"></div>
+  </main>
+
+<script>
+(function(){
+  const $ = (s)=>document.querySelector(s);
+  const board = $('#board');
+  const levelSel = $('#level');
+  const restartBtn = $('#restart');
+  const movesEl = $('#moves');
+  const timeEl = $('#time');
+  const bestEl = $('#best');
+  const feedback = $('#feedback');
+  const a11y = $('#a11y');
+
+  // 絵柄（重複しにくいシンプルな絵文字セット）
+  const EMOJIS = ['🍎','🍊','🍋','🍉','🍇','🍒','🍓','🥝','🥑','🍍','🧀','🥨','🍪','🧁','🍙','🍣','🍔','🍟','🌮','🍕','⚽️','🏀','🎲','🎧','🎈','🎯','🌙','⭐️','🔥','❄️','🌈','🍀','🌸','🐶','🐱','🐼'];
+
+  let gridW = 4, gridH = 4; // 4x4 or 5x4
+  let first = null, second = null, lock = false, matched = 0;
+  let moves = 0, seconds = 0, timerId = null, started = false;
+
+  const BEST_KEY = 'matching-best';
+  const savedBest = JSON.parse(localStorage.getItem(BEST_KEY)||'{}');
+
+  function fmtTime(sec){
+    const m = Math.floor(sec/60);
+    const s = sec % 60; return `${m}:${s.toString().padStart(2,'0')}`;
+  }
+
+  function setBest(key, sec){
+    if(!savedBest[key] || sec < savedBest[key]){ savedBest[key] = sec; localStorage.setItem(BEST_KEY, JSON.stringify(savedBest)); }
+    bestEl.textContent = savedBest[key] ? fmtTime(savedBest[key]) : '—';
+  }
+
+  function updateHud(){
+    movesEl.textContent = moves; timeEl.textContent = fmtTime(seconds);
+  }
+
+  function tick(){ seconds++; updateHud(); }
+
+  function startTimer(){ if(timerId) return; timerId = setInterval(tick, 1000); }
+  function stopTimer(){ clearInterval(timerId); timerId = null; }
+
+  function shuffle(arr){
+    for(let i=arr.length-1;i>0;i--){ const j = Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]] }
+    return arr;
+  }
+
+  function createDeck(){
+    const total = gridW * gridH; // 偶数
+    const needPairs = total / 2;
+    const picks = shuffle([...EMOJIS]).slice(0, needPairs);
+    const deck = shuffle([...picks, ...picks]);
+    return deck;
+  }
+
+  function cardEl(symbol, idx){
+    const el = document.createElement('button');
+    el.className = 'card'; el.type = 'button'; el.dataset.symbol = symbol; el.dataset.idx = idx;
+    el.setAttribute('aria-label', 'カードをめくる');
+    el.innerHTML = `
+      <div class="back"></div>
+      <div class="face"><div class="emoji">${symbol}</div></div>
+    `;
+    el.addEventListener('click', ()=> flip(el));
+    el.addEventListener('keydown', (e)=>{ if(e.key==='Enter' || e.code==='Space'){ e.preventDefault(); flip(el);} });
+    return el;
+  }
+
+  function flip(el){
+    if(lock || el.classList.contains('done') || el===first) return;
+    if(!started){ started = true; startTimer(); }
+
+    el.classList.add('flip');
+    if(!first){ first = el; return; }
+    second = el; lock = true; moves++; updateHud();
+
+    if(first.dataset.symbol === second.dataset.symbol){
+      // マッチ
+      setTimeout(()=>{
+        first.classList.add('done'); second.classList.add('done');
+        first.setAttribute('aria-label','一致しました');
+        second.setAttribute('aria-label','一致しました');
+        matched += 2; feedback.textContent = 'Good!'; feedback.className='tag good'; a11y.textContent='一致しました';
+        resetPick();
+        if(matched === gridW*gridH){
+          stopTimer();
+          feedback.textContent = 'クリア！';
+          setBest(bestKey(), seconds);
+        }
+      }, 250);
+    }else{
+      // ミス
+      setTimeout(()=>{
+        first.classList.remove('flip'); second.classList.remove('flip');
+        feedback.textContent = 'Miss'; feedback.className='tag bad'; a11y.textContent='不一致';
+        resetPick();
+      }, 650);
+    }
+  }
+
+  function resetPick(){ first=null; second=null; lock=false; }
+
+  function bestKey(){ return `${gridW}x${gridH}`; }
+
+  function build(){
+    stopTimer(); seconds = 0; moves = 0; matched = 0; started=false; updateHud(); feedback.textContent='';
+    board.classList.toggle('size-4', gridW===4);
+    board.classList.toggle('size-5', gridW===5);
+    board.innerHTML='';
+    const deck = createDeck();
+    deck.forEach((sym, i)=> board.appendChild(cardEl(sym, i)));
+    bestEl.textContent = savedBest[bestKey()] ? fmtTime(savedBest[bestKey()]) : '—';
+  }
+
+  function setLevel(v){
+    if(v==='4'){ gridW=4; gridH=4; }
+    else { gridW=5; gridH=4; }
+    build();
+  }
+
+  // イベント
+  levelSel.addEventListener('change', ()=> setLevel(levelSel.value));
+  restartBtn.addEventListener('click', build);
+  window.addEventListener('keydown', (e)=>{ if(e.code==='Space'){ e.preventDefault(); build(); } });
+
+  // 初期化
+  setLevel(levelSel.value);
+})();
+</script>
+</body>
+</html>
